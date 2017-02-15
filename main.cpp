@@ -8,7 +8,7 @@
 using namespace cv;
 using namespace std;
 
-vector<Mat> GetImageListFromFolder(string folder = "D:/images/");
+vector<Mat> GetImageListFromFolder(string folder = "data/");
 vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f>>& foundCorners, bool show = false);
 vector<Point3f> getKnownBoardPosition(Size boardSize, float squareLength);
 void saveCalibrationParameters(string parametersFileName, Mat cameraMatrix, Mat distCoeffs);
@@ -41,10 +41,10 @@ int main()
 	calibrateCamera(worldCoordinatesCorners, foundCorners, boardSize, cameraMatrix, distCoeffs, rvecs, tvecs);
 	cout << cameraMatrix << endl;
 	cout << distCoeffs << endl;
-	saveCalibrationParameters(parametersFileName,cameraMatrix,distCoeffs);
+	//saveCalibrationParameters(parametersFileName,cameraMatrix,distCoeffs);
 
-	VideoCapture vid(0);
-	Mat frame;
+	VideoCapture vid(1);
+	Mat frame, frameUndistorted;
 
 	//If video cannot be opened, terminate program.
 	if (!vid.isOpened())
@@ -52,7 +52,6 @@ int main()
 		return -1;
 	}
 
-	namedWindow("SOMETHING");
 
 	while (true) 
 	{
@@ -61,10 +60,13 @@ int main()
 		{
 			return -1;
 		}
-
-		waitKey(0);
-
-		return 0;
+		undistort(frame, frameUndistorted, cameraMatrix, distCoeffs);
+		imshow("webcam", frame);
+		imshow("webcam undistorted", frameUndistorted);
+		
+		if (waitKey(30) == 27) {
+			return 0;
+		}
 	}
 
 	namedWindow("Photos");
@@ -174,4 +176,3 @@ vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f
 void DrawCube() {
 
 }
-
