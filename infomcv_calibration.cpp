@@ -33,7 +33,7 @@ vector<Mat> GetImageListFromFolder(string folder)
 ///<summary>
 ///Retrieves a list of images for which the chessboard corners have been found.
 ///</summary>
-vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f>>& foundCorners, bool show)
+void ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f>>& foundCorners, bool show)
 {
     //Vector of images
     vector<Mat> imagesWithCorners;
@@ -55,6 +55,7 @@ vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f
         }
     }
     
+    //show images for debugging purposes
     if (show) {
         
         size_t count = imagesWithCorners.size();
@@ -64,8 +65,6 @@ vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f
             waitKey(0);
         }
     }
-    
-    return imagesWithCorners;
 }
 
 vector<Point3f> getKnownBoardPosition(Size boardSize, float squareLength)
@@ -84,37 +83,78 @@ vector<Point3f> getKnownBoardPosition(Size boardSize, float squareLength)
     return chessBoardCorners;
 }
 
-void saveCalibrationParameters(string parametersFileName, Mat cameraMatrix, Mat distCoeffs)
+bool calibrate(int camera,Mat& cameraMatrix, Mat& distCoeffs, Mat& rvecs, Mat& tvecs)
 {
+    //Try to read the calibration file
+    ostringstream oss;
+    oss<< "camera_" << camera << "_parameters.xml";
+    string paramFile = oss.str() ;
     
-    ofstream out;
-    
-    if (!out)
+    if (readCalibrationParameters(paramFile, cameraMatrix, distCoeffs, rvecs, tvecs))
     {
-        cout << "File Writing failed" << endl;  return;
+        cout << "Parameters read from file: " << paramFile << endl;
+        return true;
+    }
+    else
+        cout << "No parameters file found for camera" << camera << ". Calibrating..." << endl;
+    
+    //Gets the list of images from the specified folder
+    vector<Mat> imagesFromFolder = GetImageListFromFolder();
+    
+    if (imagesFromFolder.size() < 3)
+    {
+        cout << "Not enough sources to calibrate. " << endl;
+        return false;
     }
     
-    double value;
+    vector<vector<Point2f>> foundCorners;
     
-    //Save CameraMatrix values
-    for (int i = 0; i < cameraMatrix.rows; i++) {
-        for (int j = 0; i < cameraMatrix.cols; j++) {
-            value = cameraMatrix.at<double>(i, j);
-            out << value << endl;
-        }
+    ExtractCornersFromFiles(imagesFromFolder, foundCorners);
+    
+    vector<Point3f> knownChessboardCoordinates = getKnownBoardPosition(boardSize, squareLength);
+    
+    vector<vector<Point3f>> worldCoordinatesCorners(1);
+    worldCoordinatesCorners[0] = knownChessboardCoordinates;
+    worldCoordinatesCorners.resize(foundCorners.size(), worldCoordinatesCorners[0]);
+    
+    calibrateCamera(worldCoordinatesCorners, foundCorners, boardSize, cameraMatrix, distCoeffs, rvecs, tvecs);
+    
+    //Save parameters to file
+    saveCalibrationParameters(paramFile, cameraMatrix, distCoeffs, rvecs, tvecs);
+    
+    return true;
+}
+
+bool readCalibrationParameters(string paramFile, Mat& cameraMatrix, Mat& distCoeffs, Mat& rvecs, Mat& tvecs)
+{
+    FileStorage fs(paramFile, FileStorage::READ);
+    
+    if(!fs.isOpened())
+    {
+        return false;
     }
     
-    cout << "rows completed" << endl;
+    fs["K"] >> cameraMatrix;
+    fs["dist"] >> distCoeffs;
+    fs["rvecs"] >> rvecs;
+    fs["tvecs"] >> tvecs;
     
-    for (int i = 0; i < distCoeffs.rows; i++) {
-        for (int j = 0; i < distCoeffs.cols; j++) {
-            value = distCoeffs.at<double>(i, j);
-            out << value << endl;
-        }
-    }
+    cout << parametersFileName << " successfully read" << endl;
+    return true;
+}
+
+bool saveCalibrationParameters(string parametersFileName, Mat& cameraMatrix, Mat& distCoeffs, Mat& rvecs, Mat& tvecs)
+{
+    FileStorage fs(parametersFileName, FileStorage::WRITE);
     
-    cout << "parameterFile successfully saved" << endl;
-    out.close();
+    fs << "K" << cameraMatrix;
+    fs << "dist" << distCoeffs;
+    fs << "rvecs" << rvecs;
+    fs << "tvecs" << tvecs;
+    
+    cout << parametersFileName << " successfully saved" << endl;
+    
+    return true;
 }
 
 

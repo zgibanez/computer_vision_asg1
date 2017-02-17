@@ -23,12 +23,14 @@ using namespace cv;
 using namespace std;
 
 vector<Mat> GetImageListFromFolder(string folder = "data/");
-vector<Mat> ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f>>& foundCorners, bool show = true);
+void ExtractCornersFromFiles(vector<Mat> imageList, vector<vector<Point2f>>& foundCorners, bool show = false);
 vector<Point3f> getKnownBoardPosition(Size boardSize, float squareLength);
 
-bool calibrate(int camera,Mat cameraMatrix, Mat distCoeff, Mat R, Mat t);
+bool calibrate(int camera,Mat& cameraMatrix, Mat& distCoeff, Mat& rvecs, Mat& tvecs);
 
-void saveCalibrationParameters(string parametersFileName, Mat cameraMatrix, Mat distCoeffs);
+bool readCalibrationParameters(string paramFile, Mat& cameraMatrix, Mat& distCoeffs, Mat& rvecs, Mat& tvecs);
+
+bool saveCalibrationParameters(string parametersFileName, Mat& cameraMatrix, Mat& distCoeffs, Mat& rvecs, Mat& tvecs);
 
 const float squareLength = 0.0245f;
 const Size boardSize = Size(6, 9);
