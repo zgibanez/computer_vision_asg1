@@ -161,6 +161,21 @@ bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> board
 	Rodrigues(rvect, extrinsicMatrix);
 	hconcat(extrinsicMatrix, tvec, extrinsicMatrix);
 
+	//Calculate axes points in imageSpace
+	vector<Point3d> axesWorldPoints(4);
+	vector<Point2d> axesImagePoints(4);
+	axesWorldPoints.push_back(Point3d(0, 0, 0));
+	axesWorldPoints.push_back(Point3d(squareLength * 2, 0, 0));
+	axesWorldPoints.push_back(Point3d(0, squareLength * 2, 0));
+	axesWorldPoints.push_back(Point3d(0, 0, -squareLength * 2));
+	projectPoints(axesWorldPoints, rvect, tvec, cameraMatrix, distCoeffs, axesImagePoints);
+	
+	cout << "AXES IMAGE POINTS" << axesImagePoints << endl;
+	line(frame, axesImagePoints[0], axesImagePoints[5], Scalar(255, 0, 0), 2);
+	line(frame, axesImagePoints[0], axesImagePoints[6], Scalar(0, 255, 0), 2);
+	line(frame, axesImagePoints[0], axesImagePoints[7], Scalar(0, 0, 255), 2);
+
+
 	//Define the cube point coordinates in object space
 	Mat1d cubeWorldPoints(8,3,CV_64F);
 	Mat1d ones = Mat::ones(8, 1, CV_64F);
@@ -180,7 +195,7 @@ bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> board
 	for (int i = 0; i < cubeImagePoints.cols; i++) {
 		transpose(cubeWorldPoints.row(i), worldPoint);
 		transpose(cameraMatrix*extrinsicMatrix*worldPoint, cubeImagePoints.row(i));
-		cout << cameraMatrix*extrinsicMatrix*worldPoint << endl;
+		//cout << cameraMatrix*extrinsicMatrix*worldPoint << endl;
 	}
 	cubeImagePoints.colRange(0, 1);
 	
