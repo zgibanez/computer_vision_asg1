@@ -3,6 +3,8 @@
 bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> boardPoints);
 void getAxesInCameraCoordinates(vector<Point2d> cubePoints, Mat cameraMatrix, vector<Point3d>& cameraAxisPoints);
 
+#define UsedCamera 0
+
 /*
  Idea for main:
  calibrateCamera(number_of_the_camera, pictures_folder)
@@ -24,7 +26,7 @@ int main()
     //Camera extrinsic parameters
     Mat rvecs, tvecs;
     
-    bool successfulCalibration = calibrate(0, cameraMatrix, distCoeffs, rvecs, tvecs);
+    bool successfulCalibration = calibrate(UsedCamera, cameraMatrix, distCoeffs, rvecs, tvecs);
     if (!successfulCalibration) {
         cout << "Camera could not be calibrated" << endl;
         return -1;
@@ -33,7 +35,7 @@ int main()
     cout << "CAMERA MATRIX" << cameraMatrix << endl;
     cout << "DISTORTION COEFFICIENTS" << distCoeffs << endl;
     
-    VideoCapture vid(0);
+    VideoCapture vid(UsedCamera);
     Mat frame, frameUndistorted;
     
     //If video cannot be opened, terminate program.
@@ -85,9 +87,9 @@ bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> board
     Mat rvect;
     Mat tvec;
     solvePnP(boardPoints, foundCorners, cameraMatrix, distCoeffs, rvect, tvec);
-    Mat extrinsicMatrix;
+    /*Mat extrinsicMatrix;
     Rodrigues(rvect, extrinsicMatrix);
-    hconcat(extrinsicMatrix, tvec, extrinsicMatrix);
+    hconcat(extrinsicMatrix, tvec, extrinsicMatrix);*/
     
     //Calculate axes points in imageSpace
     vector<Point3d> axesWorldPoints(0);
@@ -116,49 +118,46 @@ bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> board
     cubeWorldPoints.push_back(Point3d(squareLength * 2, squareLength * 2, -squareLength * 2));
     
     //Without extra points
-    projectPoints(cubeWorldPoints, rvect, tvec, cameraMatrix, distCoeffs, cubeImagePoints);
+    //projectPoints(cubeWorldPoints, rvect, tvec, cameraMatrix, distCoeffs, cubeImagePoints);
     
-    //********CUBE DRAWING
+    //vector<Point2d> cubePoints = cubeImagePoints;
+    vector<Point2d> cubePoints(0);
+    Mat extrinsicMatrix;
+    Rodrigues(rvect, extrinsicMatrix);
+    hconcat(extrinsicMatrix, tvec, extrinsicMatrix);
+    Mat krt = cameraMatrix*extrinsicMatrix;
+    cout << "KRT" << krt << endl;
     
-    //Define the cube point coordinates in object space
-    /*Mat1d cubeWorldPoints(8,3,CV_64F);
-    Mat1d ones = Mat::ones(8, 1, CV_64F);
-    //origin
-    cubeWorldPoints.row(0) << 0, 0, 0;
-    //X = 1
-    cubeWorldPoints.row(1) << squareLength * 2, 0, 0;
-    //Y = 1
-    cubeWorldPoints.row(2) << 0, squareLength * 2, 0;
-    //Z = 1
-    cubeWorldPoints.row(3) << 0, 0, squareLength * 2;
-    //x = Y = 1
-    cubeWorldPoints.row(4) << squareLength * 2, squareLength * 2, 0;
-    cubeWorldPoints.row(5) << 0, squareLength * 2, squareLength * 2;
-    cubeWorldPoints.row(6) << squareLength * 2, 0, squareLength * 2;
-    cubeWorldPoints.row(7) << squareLength * 2, squareLength * 2, squareLength * 2;
-    //hconcat(cubeWorldPoints, ones, cubeWorldPoints);
-    */
-    /*//Determine their representation in the image space explicitly: [x,y,1] = K*[R|t]*[X,Y,Z]
-    Mat cubeImagePoints(8,3,CV_64F);
-    Mat worldPoint;
-    for (int i = 0; i < cubeImagePoints.rows; i++) {
-        transpose(cubeWorldPoints.row(i), worldPoint);
-        transpose(cameraMatrix*extrinsicMatrix*worldPoint, cubeImagePoints.row(i));
-        cout << "Mult" << cameraMatrix*extrinsicMatrix*worldPoint << endl;
+    Mat point3, point2, correctedPoint2;
+    double x,y,rs,
+            k1 = distCoeffs.at<double>(0,0),
+            k2 = distCoeffs.at<double>(1,0),
+            k3 = distCoeffs.at<double>(4,0),
+            p1 = distCoeffs.at<double>(2,0),
+            p2 = distCoeffs.at<double>(3,0);
+    
+    for (int i=0; i< cubeWorldPoints.size();i++)
+    {
+        cout << "Punto " << i << cubeWorldPoints[i] << endl;
+        point3 = Mat(cubeWorldPoints[i]);
+        vconcat(point3, 1, point3);
+        cout << "POINT " << i << point3 << endl;
+        //Projection
+        point2 = krt * point3;
+        //Values for distortion
+        x = point2.at<double>(0,0);
+        y = point2.at<double>(1,0);
+        rs = x*x + y*y;
+        /*//Radial distortion
+        x *= 1 + rs*k1 + rs*rs*k2 + rs*rs*rs*k3;
+        y *= 1 + rs*k1 + rs*rs*k2 + rs*rs*rs*k3;
+        //Tangential distortion
+        x -= 2 * p1 * x * y + p2 * (rs + 2 * x * x);
+        y -= p1 * (rs + 2 * y * y) + 2 * p2 * x * y;*/
+        cubePoints.push_back(Point2d(x,y));
+        
     }
-    //Ignore the homogenous element
-    cubeImagePoints.colRange(0, 1);
-    //cout << "CubeImagePoints: " << cubeImagePoints << endl;*/
     
-    
-    
-     /*//Draw them on the frame
-     vector<Point2d> cubePoints(8);
-     for (int i = 0; i < cubePoints.size(); i++) {
-         cubePoints[i] = Point2f(cubeImagePoints.at<double>(i,0), cubeImagePoints.at<double>(i, 1));
-     }
-    //cout << cubePoints << endl;*/
-    vector<Point2d> cubePoints = cubeImagePoints;
      Scalar color = Scalar(0, 255, 255);
      int thickness = 4;
     //Cara 1
@@ -181,3 +180,4 @@ bool DrawCube(Mat frame, Mat cameraMatrix, Mat distCoeffs, vector<Point3f> board
     
     return true;
 }
+
